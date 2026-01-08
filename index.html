@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>乙四 危険物取扱者 〇×一問一答</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            touch-action: manipulation; /* ダブルタップによるズームを無効化 */
+        }
+        .feedback-animation {
+            animation: fadeInOut 1.5s ease-in-out;
+        }
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0; transform: scale(0.9); }
+            10%, 90% { opacity: 1; transform: scale(1); }
+        }
+        .progress-bar-inner {
+            transition: width 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 flex items-center justify-center min-h-screen py-8">
+
+    <div id="quiz-container" class="bg-white w-full max-w-2xl mx-4 sm:mx-auto rounded-xl shadow-lg p-6 sm:p-8 text-center">
+        
+        <!-- モード選択画面 -->
+        <div id="mode-selection" class="text-center">
+            <h1 class="text-2xl sm:text-3xl font-bold text-slate-800 mb-4">学習モードを選択</h1>
+            <p class="text-slate-600 mb-8">間違えたときの動作を選んでください。</p>
+            <div class="grid grid-cols-1 gap-4">
+                <button id="mode-retry" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg transition-transform duration-150 active:scale-95">
+                    <span class="block text-xl">苦手克服モード</span>
+                    <span class="block text-sm">（間違えた問題を第一問から再スタート）</span>
+                </button>
+                <button id="mode-continue" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg transition-transform duration-150 active:scale-95">
+                    <span class="block text-xl">通し練習モード</span>
+                    <span class="block text-sm">（間違えても次の問題へ進む）</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- クイズ本体 (最初は非表示) -->
+        <div id="quiz-main-content" class="hidden">
+            <!-- ヘッダー部分 -->
+            <header class="mb-6 relative">
+                <h1 class="text-2xl sm:text-3xl font-bold text-slate-800">乙四 〇×一問一答チャレンジ</h1>
+                <p class="text-slate-500 mt-2">自分のペースでじっくり学ぼう！</p>
+                <button id="quit-btn" class="absolute top-0 right-0 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-2 px-3 rounded-lg text-xs sm:text-sm">やめる</button>
+            </header>
+
+            <!-- 進捗状況 -->
+            <div class="mb-6">
+                <div class="flex justify-between items-center text-sm font-semibold text-slate-600 mb-1">
+                    <span>進捗</span>
+                    <div>
+                        <span id="progress-text"></span>
+                        <span id="rate-text" class="hidden"></span>
+                    </div>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-2.5">
+                    <div id="progress-bar" class="bg-blue-600 h-2.5 rounded-full progress-bar-inner" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <!-- 問題表示エリア -->
+            <div class="bg-slate-50 border-2 border-slate-200 rounded-lg p-6 min-h-[150px] flex items-center justify-center mb-6 relative">
+                <div id="feedback-overlay" class="absolute inset-0 flex items-center justify-center text-6xl font-extrabold" style="display: none;"></div>
+                <p id="question-text" class="text-lg sm:text-xl font-semibold text-slate-900 leading-relaxed"></p>
+            </div>
+
+            <!-- 解説表示エリア -->
+            <div id="explanation-container" class="hidden mb-6 text-left p-4 rounded-lg">
+            </div>
+            
+            <!-- 操作ボタン -->
+            <div id="button-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button id="true-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-6 px-4 rounded-lg text-4xl transform transition-transform duration-150 active:scale-95">
+                    〇
+                </button>
+                <button id="false-btn" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-6 px-4 rounded-lg text-4xl transform transition-transform duration-150 active:scale-95">
+                    ×
+                </button>
+            </div>
+
+            <!-- 次へ/リセットボタン -->
+            <div id="action-button-container" class="hidden">
+                <button id="next-question-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg text-lg">
+                    次の問題へ
+                </button>
+                <button id="return-to-start-btn" class="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold py-3 px-8 rounded-lg text-lg">
+                    最初からやり直す
+                </button>
+            </div>
+
+            <!-- 全問正解メッセージ -->
+            <div id="complete-container" class="hidden text-center">
+                <h2 class="text-3xl font-bold text-green-600 mb-4">全問正解！おめでとうございます！</h2>
+                <p class="text-slate-600 mb-6">素晴らしいです！この調子で学習を続けて、合格を掴み取りましょう。</p>
+                <p id="final-rate" class="text-slate-600 mb-6 hidden"></p>
+                <button id="restart-btn" class="bg-slate-700 hover:bg-slate-800 text-white font-bold py-3 px-8 rounded-lg text-lg">
+                    もう一度挑戦する
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const questions = [
+            // --- 法令 (25問) ---
+            { text: "危険物保安監督者は、6ヶ月以上の実務経験がなくても選任することができる。", answer: false, explanation: "危険物保安監督者になるには、甲種または乙種危険物取扱者免状を持ち、製造所等で6ヶ月以上の実務経験が必要です。" },
+            { text: "製造所等の定期点検の記録は、3年間保存しなければならない。", answer: true, explanation: "消防法により、製造所等の所有者等は定期点検を行い、その記録を3年間保存することが義務付けられています。" },
+            { text: "給油取扱所では、顧客にセルフサービスでガソリンを詰め替えさせることは一切できない。", answer: false, explanation: "顧客自らが給油できる給油取扱所（セルフスタンド）は、一定の安全基準を満たすことで認められています。" },
+            { text: "指定数量の1/2の危険物を貯蔵する場合、市町村長等の許可は不要である。", answer: true, explanation: "指定数量の1/5以上、指定数量未満の危険物（少量危険物）は、許可ではなく市町村の火災予防条例に基づく届出が必要です。指定数量の1/5未満なら届出も不要です。" },
+            { text: "危険物取扱者免状は、10年ごとに写真の書換えが必要である。", answer: true, explanation: "危険物取扱者免状は、交付日から10年以内ごとに写真の書換え申請が必要です。期限を過ぎると免状が失効する場合があります。" },
+            { text: "予防規程を定めなければならない事業所は、危険物保安監督者を必ず選任しなければならない。", answer: true, explanation: "予防規程の策定が義務付けられている製造所等は、指定数量の倍数が一定以上であり、危険物保安監督者の選任も必須となります。" },
+            { text: "移動タンク貯蔵所（タンクローリー）は、許可なくどこにでも駐車できる。", answer: false, explanation: "移動タンク貯蔵所は、常置場所として許可された場所以外での駐車は厳しく制限されています。特に、休憩や食事などの一時的な停車以外は認められません。" },
+            { text: "危険物施設保安員は、危険物取扱者免状を持っていなくても選任できる。", answer: true, explanation: "危険物施設保安員は、保安監督者の指示を受けて施設の保安業務を行う者であり、必ずしも危険物取扱者である必要はありません。" },
+            { text: "製造所等の位置、構造又は設備を変更する場合、軽微な変更であっても必ず許可が必要である。", answer: false, explanation: "火災の予防上支障がないと認められる軽微な変更については、許可ではなく事後の届出で済む場合があります。" },
+            { text: "ひとつの貯蔵タンクに、許可なく2種類以上の危険物を貯蔵することはできない。", answer: true, explanation: "異なる種類の危険物を混在させると危険な反応を起こす可能性があるため、1つの貯蔵設備には1種類の危険物しか貯蔵できません。" },
+            { text: "定期点検が義務付けられていない製造所等もある。", answer: true, explanation: "すべての製造所等に定期点検が義務付けられているわけではありません。例えば、地下タンク貯蔵所など特定の施設は対象となります。" },
+            { text: "危険物取扱者免状を亡失した場合、再交付の申請は免状を交付した都道府県知事に行う。", answer: true, explanation: "免状の交付、書換、再交付の申請は、すべて免状を交付した都道府県知事に対して行います。" },
+            { text: "甲種危険物取扱者は、すべての類の危険物について、取扱いと立会いができる。", answer: true, explanation: "甲種は第1類から第6類までのすべての危険物について、取扱い及び保安監督（立会い）ができます。" },
+            { text: "無許可で指定数量以上の危険物を貯蔵した場合、罰則の対象となる。", answer: true, explanation: "消防法に違反して無許可で指定数量以上の危険物を貯蔵・取扱うと、懲役や罰金などの厳しい罰則が科せられます。" },
+            { text: "危険物運搬時には、車両の前後の見やすい箇所に「危」の標識を掲げなければならない。", answer: true, explanation: "指定数量以上の危険物を車両で運搬する場合、車両の前後の見やすい位置に、黒地に黄色の文字で「危」と表示した標識を掲げる必要があります。" },
+            { text: "危険物取扱者免状を携帯していない場合、危険物の取扱い業務に従事してはならない。", answer: true, explanation: "危険物取扱者は、業務に従事する際は必ず免状を携帯していなければなりません。" },
+            { text: "製造所等の所有者は、危険物保安監督者の解任を市町村長等に届け出る必要はない。", answer: false, explanation: "危険物保安監督者を選任または解任したときは、遅滞なくその旨を市町村長等に届け出る必要があります。" },
+            { text: "屋内貯蔵所では、貯蔵する危険物の種類に関わらず、床面積は1000平方メートル以下でなければならない。", answer: true, explanation: "屋内貯蔵所の床面積は、原則として1000平方メートル以下と定められています。" },
+            { text: "屋外タンク貯蔵所には、その周囲に必ず防油堤を設けなければならない。", answer: true, explanation: "万が一タンクから危険物が漏洩した際に、外部への流出を防ぐため、防油堤の設置が義務付けられています。" },
+            { text: "セルフスタンド以外の給油取扱所では、自動車等に給油する際、必ずエンジンを停止させなければならない。", answer: true, explanation: "給油中にエンジンがかかっていると、静電気や排気ガスの火花で引火する危険があるため、エンジン停止が義務付けられています。" },
+            { text: "指定数量の倍数が10以上の製造所等は、保有空地を確保する必要はない。", answer: false, explanation: "製造所等の周囲には、火災予防や消火活動のために、その規模（指定数量の倍数）に応じた幅の「保有空地」を確保しなければなりません。" },
+            { text: "危険物保安監督者は、他の事業所の保安監督者を兼任することはできない。", answer: false, explanation: "市町村長等の承認を受ければ、隣接する複数の事業所の保安監督者を兼任できる場合があります。" },
+            { text: "危険物取扱者免状の交付を受けていない者でも、甲種または乙種危険物取扱者の立会いがあれば、危険物を取り扱うことができる。", answer: true, explanation: "免状のない者でも、甲種または乙種取扱者の監督・指示（立会い）のもとであれば、危険物の取扱い作業が可能です。" },
+            { text: "地下貯蔵タンクの材質は、鋼鉄製でなければならない。", answer: false, explanation: "鋼鉄製のほか、強化プラスチック（FRP）製や、それらを組み合わせた二重殻タンクなども認められています。" },
+            { text: "すべての製造所等は、消火活動が困難な施設として消防長（消防署長）の指定を受ける。", answer: false, explanation: "「消火活動が著しく困難な製造所等」は特定されており、それらに該当する場合に指定されます。すべての施設ではありません。" },
+
+            // --- 物理・化学 (25問) ---
+            { text: "燃焼の三要素とは、可燃物、酸素供給体、点火源のことである。", answer: true, explanation: "燃焼が起こるためには、①燃えるもの（可燃物）、②酸素を供給するもの（酸素供給体）、③発火させるエネルギー（点火源）の3つが揃う必要があります。" },
+            { text: "静電気は、湿度が高いほど発生しやすくなる。", answer: false, explanation: "静電気は、空気が乾燥している（湿度が低い）冬場などに発生しやすくなります。湿度が高いと、空気中の水分を通じて電荷が逃げやすくなるためです。" },
+            { text: "物質が液体を経ずに固体から直接気体に変化することを「昇華」という。", answer: true, explanation: "ドライアイスが二酸化炭素の気体になったり、ナフタレンが固体のまま減っていくのは昇華の例です。" },
+            { text: "鉄が錆びるのは、還元反応の一種である。", answer: false, explanation: "鉄が錆びるのは、鉄が空気中の酸素と結びつく「酸化反応」です。還元は酸化の逆の反応です。" },
+            { text: "消火の方法の一つである「除去効果」とは、燃焼の三要素から酸素供給体を取り除くことである。", answer: false, explanation: "「除去効果」は、可燃物そのものを取り除いたり、移動させたりして消火する方法です。酸素を取り除くのは「窒息効果」です。" },
+            { text: "物質の蒸気比重が1より大きい場合、その蒸気は空気より重く、低い場所に滞留しやすい。", answer: true, explanation: "蒸気比重は、空気の重さを1としたときの蒸気の重さの比です。ガソリン蒸気など、第4類の多くは蒸気比重が1より大きく、床面など低い場所に溜まります。" },
+            { text: "引火点とは、可燃性液体が自然に燃え始める最低温度のことである。", answer: false, explanation: "これは「発火点」の説明です。「引火点」は、点火源（火気）を近づけたときに燃え始めるのに十分な濃度の蒸気を発生する最低温度を指します。" },
+            { text: "熱の伝わり方には、伝導、対流、放射の3種類がある。", answer: true, explanation: "伝導は物体内を熱が伝わる現象、対流は液体や気体が移動することで熱が伝わる現象、放射は電磁波によって熱が伝わる現象です。" },
+            { text: "消火剤として使われる水は、比熱と蒸発熱が非常に大きいという特徴を持つ。", answer: true, explanation: "水は温まりにくく（比熱が大きい）、蒸発するときに大量の熱を奪う（蒸発熱が大きい）ため、冷却効果が非常に高く、優れた消火剤となります。" },
+            { text: "燃焼範囲が広いほど、危険性は低いとされる。", answer: false, explanation: "燃焼範囲（爆発範囲）とは、空気と可燃性蒸気が混合して燃焼できる濃度の範囲のことです。この範囲が広いほど、わずかな漏洩でも引火しやすいため、危険性は高くなります。" },
+            { text: "泡消火薬剤は、冷却効果と窒息効果の両方で消火する。", answer: true, explanation: "泡は燃焼物を覆って酸素の供給を断つ「窒息効果」と、泡に含まれる水分が蒸発する際の気化熱で燃焼物の温度を下げる「冷却効果」を併せ持ちます。" },
+            { text: "金属が燃焼する場合、水で消火するのは危険である。", answer: true, explanation: "ナトリウムやマグネシウムなどの金属火災に水をかけると、水と反応して可燃性の水素ガスが発生し、爆発的に燃焼する危険があります。" },
+            { text: "pHの値が7より小さい液体はアルカリ性である。", answer: false, explanation: "pH7が中性、7より小さいと酸性、7より大きいとアルカリ性です。" },
+            { text: "酸化剤は、それ自体は燃えないが、他の物質の燃焼を助ける性質を持つ。", answer: true, explanation: "第1類や第6類の危険物（酸化性物質）は、可燃物と混合すると激しく燃焼させる支燃性物質であり、不燃性です。" },
+            { text: "沸点が低い液体ほど、蒸発しにくい。", answer: false, explanation: "沸点が低い液体は、低い温度で気体に変化しやすい、つまり「蒸発しやすい」性質を持ちます。ガソリンなどがその例です。" },
+            { text: "物質が燃焼するとき、必ず光と熱を発生する。", answer: true, explanation: "燃焼とは、発熱と発光を伴う急激な酸化反応のことです。" },
+            { text: "静電気の放電火花は、点火源にならない。", answer: false, explanation: "静電気の放電火花は、ガソリン蒸気などに引火させるのに十分なエネルギーを持つため、危険な点火源となります。" },
+            { text: "比熱が小さい物質ほど、温まりにくく冷めにくい。", answer: false, explanation: "比熱が小さい物質は、少ない熱量で温度が上昇するため「温まりやすく冷めやすい」性質を持ちます。金属などがその例です。" },
+            { text: "可燃性蒸気が空気より軽いか重いかは、その物質の比重で判断できる。", answer: false, explanation: "蒸気の重さは「蒸気比重」で判断します。物質そのものの重さ（比重）とは異なります。例えばガソリンは水より軽い（比重<1）ですが、蒸気は空気より重い（蒸気比重>1）です。" },
+            { text: "物質の沸点は、圧力が高くなると低くなる。", answer: false, explanation: "圧力が高くなると、物質は蒸発しにくくなるため、沸点は高くなります。圧力鍋はこの原理を利用しています。" },
+            { text: "二酸化炭素消火剤は、主に除去効果によって消火する。", answer: false, explanation: "二酸化炭素は、空気より重く燃えない気体で、燃焼物を覆って酸素を遮断する「窒息効果」と、気化する際の冷却効果で消火します。" },
+            { text: "酸化反応は、必ずしも燃焼を伴うわけではない。", answer: true, explanation: "鉄がゆっくり錆びるのも酸化反応ですが、光や急激な熱を発生しないため燃焼とは呼びません。" },
+            { text: "熱伝導率は、気体よりも液体、液体よりも固体の方が一般的に大きい。", answer: true, explanation: "物質の密度が高いほど熱は伝わりやすいため、一般に 固体 > 液体 > 気体 の順に熱伝導率が大きくなります。" },
+            { text: "引火性液体の液温が引火点未満であれば、点火源を近づけても引火しない。", answer: true, explanation: "引火点は、引火するのに十分な濃度の蒸気が発生する最低温度です。それより低い温度では蒸気濃度が薄いため引火しません。" },
+            { text: "第4類の危険物は、すべて有機化合物である。", answer: false, explanation: "第4類の中には「二硫化炭素（CS2）」が含まれますが、これは炭素を含むものの、一般に無機化合物に分類されます。" },
+
+            // --- 性質・消火 (50問) ---
+            { text: "ガソリンの引火点は、常温（20℃）よりも低い。", answer: true, explanation: "ガソリンの引火点は-40℃以下と非常に低く、冬場の低温環境でも常に引火の危険性があります。" },
+            { text: "第4類の危険物は、一般に水より軽く、水に溶けにくいものが多い。", answer: true, explanation: "ガソリンや灯油などは水に浮き、水に溶けないため、水を使った消火は燃焼面を広げる可能性があり、不適切です。" },
+            { text: "電気設備がある場所の火災には、棒状の水を放射する消火器が最も効果的である。", answer: false, explanation: "水は電気を通すため、通電中の電気設備火災（C火災）に使用すると感電の危険があります。二酸化炭素や粉末消火器が適しています。" },
+            { text: "灯油は、ガソリンよりも引火点が高い。", answer: true, explanation: "灯油の引火点は40℃以上であり、ガソリン（-40℃以下）に比べて引火しにくい性質を持っています。" },
+            { text: "第4類の危険物の火災には、泡消火薬剤が有効である。", answer: true, explanation: "泡消火薬剤は、油の表面を覆って酸素を遮断する（窒息効果）ため、第4類危険物（引火性液体）の火災（B火災）に非常に有効です。" },
+            { text: "ガソリンの蒸気は、空気より重い。", answer: true, explanation: "ガソリンの蒸気比重は約3～4で、空気（約1）より重いため、低い場所に滞留し、離れた場所の火気でも引火する危険があります。" },
+            { text: "二硫化炭素は水に溶けないが、水より重いため、水に沈む。", answer: true, explanation: "二硫化炭素は特殊引火物で、比重が水より大きい（約1.26）ため水底に沈みます。そのため、水を張って保管する「水没貯蔵」が行われます。" },
+            { text: "アルコール類は水溶性のため、通常の泡消火薬剤では効果が薄い。", answer: true, explanation: "水溶性の液体（アルコールなど）には、通常の泡は消えてしまうため、耐アルコール泡消火薬剤を使用する必要があります。" },
+            { text: "軽油の引火点は、灯油の引火点より高い。", answer: true, explanation: "引火点の順は一般的に、ガソリン < 灯油 < 軽油 < 重油 となります。軽油の引火点は約45℃以上です。" },
+            { text: "第4類の危険物は、静電気の蓄積により発火する危険性がある。", answer: true, explanation: "ガソリンや灯油などは電気の不良導体であり、流動や摩擦によって静電気が蓄積されやすいです。この静電気火花が点火源となり得ます。" },
+            { text: "重油は、加熱しないと引火しない。", answer: true, explanation: "重油の引火点は高く（60℃～）、常温では引火しません。使用する際には、霧状にするか加熱して引火点以上の温度にする必要があります。" },
+            { text: "第4石油類の危険物（ギヤー油、シリンダー油など）は、引火点が200℃以上である。", answer: true, explanation: "第4石油類は、引火点が200℃以上250℃未満の引火性液体と定義されています。" },
+            { text: "霧状の水を噴霧する消火設備は、第4類の火災に有効な場合がある。", answer: true, explanation: "霧状の水は、冷却効果と窒息効果（水蒸気が酸素を遮断）があるため、重油などの火災に有効な場合があります。ただし、水溶性液体には適しません。" },
+            { text: "アセトンは、第4類の第一石油類に分類される。", answer: true, explanation: "アセトンは引火点が-20℃で、第一石油類（水溶性液体）に該当します。" },
+            { text: "動植物油類は、布などに染み込むと自然発火することがある。", answer: true, explanation: "アマニ油などの乾性油が布に染み込むと、空気中の酸素と反応して酸化熱が蓄積し、自然発火（発火点に達する）ことがあり危険です。" },
+            { text: "第4類の危険物は、すべて無色透明である。", answer: false, explanation: "ガソリンはオレンジ色、灯油や軽油は淡黄色、重油は暗褐色など、着色されているものや元々色がついているものがあります。" },
+            { text: "消火の際に、ハロゲン化物消火剤を使用すると有毒ガスが発生する可能性がある。", answer: true, explanation: "ハロゲン化物消火剤は高い消火能力を持ちますが、熱分解によって有毒なガス（フッ化水素など）を発生させるため、使用時には注意が必要です。" },
+            { text: "特殊引火物とは、発火点が100℃以下のものをいう。", answer: true, explanation: "特殊引火物は、「発火点が100℃以下」または「引火点が-20℃以下で沸点が40℃以下」の液体です。ジエチルエーテルなどが該当します。" },
+            { text: "ガソリンスタンドの固定給油設備（ガソリン計量機）の周囲には、「給油中エンジン停止」の掲示板が必要である。", answer: true, explanation: "給油中のエンジン始動は火花を発生させ、点火源となる可能性があるため、この掲示が義務付けられています。" },
+            { text: "第4類の危険物は、貯蔵容器を密栓し、冷暗所に保管することが望ましい。", answer: true, explanation: "蒸発を防ぎ、可燃性蒸気の発生を抑えるために密栓し、温度上昇による内圧上昇や引火を防ぐために直射日光を避けた冷暗所での保管が原則です。" },
+            { text: "危険物を運搬する車両には、消火器の設置が義務付けられている。", answer: true, explanation: "指定数量以上の危険物を運搬する場合、車両には適応する消火器を備え付ける必要があります。" },
+            { text: "予防規程は、一度作成すれば変更する必要はない。", answer: false, explanation: "製造所等の実態に合わせて、または法令が改正された場合など、必要に応じて予防規程は見直し、変更する必要があります。変更時も認可が必要です。" },
+            { text: "簡易タンク貯蔵所で貯蔵できる危険物の量は、タンク1基あたり600リットル以下である。", answer: true, explanation: "簡易タンク貯蔵所は、1基の容量が600リットル以下、同一敷地内に3基まで（同一品質のものは2基まで）と制限されています。" },
+            { text: "危険物取扱者試験に合格すれば、すぐに危険物取扱者として業務ができる。", answer: false, explanation: "試験合格後、都道府県知事に免状の交付を申請し、免状を受け取って初めて危険物取扱者として業務が行えます。" },
+            { text: "製造所等で火災が発生した場合、所有者等は直ちに消防署に通報しなければならない。", answer: true, explanation: "火災や危険物の漏洩事故が発生した際は、直ちに消防機関への通報、応急措置、関係者への連絡が義務付けられています。" },
+            { text: "泡消火薬剤は、電気火災（C火災）に最も適している。", answer: false, explanation: "泡消火薬剤は水分を含み導電性があるため、感電の危険があり電気火災には適していません。二酸化炭素や粉末消火剤が適しています。" },
+            { text: "物質が「自然発火」する原因は、静電気の蓄積である。", answer: false, explanation: "自然発火は、酸化熱、分解熱、吸着熱などが蓄積し、外部からの点火源なしに発火点に達する現象です。静電気は点火源の一つですが、自然発火の熱源ではありません。" },
+            { text: "蒸発は、液体の表面だけでなく内部からも起こる現象である。", answer: false, explanation: "液体の内部からも気化が起こる現象は「沸騰」です。「蒸発」は液体の表面からのみ起こります。" },
+            { text: "触媒とは、化学反応の前後でそれ自体は変化せず、反応速度を変える物質のことである。", answer: true, explanation: "反応を速めるものを正触媒（助燃性のある酸化剤など）、遅くするものを負触媒（酸化防止剤など）と呼びます。" },
+            { text: "最小着火エネルギーが小さい物質ほど、危険性は低い。", answer: false, explanation: "最小着火エネルギーが小さいほど、わずかなエネルギー（静電気火花など）で着火するため、危険性は高くなります。" },
+            { text: "ガソリンは、灯油や軽油に比べて引火点が非常に低く、危険性が高い。", answer: true, explanation: "ガソリンの引火点は-40℃以下であり、常温でも引火性蒸気を発生させているため、第4類の中でも特に危険性が高いです。" },
+            { text: "第4類の危険物は、すべて水に浮く。", answer: false, explanation: "第4類の多くは水より軽いですが、二硫化炭素（比重1.26）や、グリセリン、エチレングリコールなどは水より重く、水に沈みます。" },
+            { text: "A火災とは、石油類の火災を指す。", answer: false, explanation: "A火災は、木材や紙などが燃える「普通火災」です。石油類の火災は「B火災」と呼ばれます。" },
+            { text: "アセトアルデヒドは、特殊引火物に分類される。", answer: true, explanation: "アセトアルデヒドは、引火点が-39℃、沸点が約21℃であり、「引火点-20℃以下で沸点40℃以下」の特殊引火物の定義に該当します。" },
+            { text: "アルコール類（第4類）とは、すべてのアルコール化合物を指す。", answer: false, explanation: "消防法上のアルコール類とは、1分子を構成する炭素原子が1～3個の飽和1価アルコール（メタノール、エタノール、プロパノール）を指します。" },
+            { text: "動植物油類は、すべて第4石油類に分類される。", answer: false, explanation: "動植物油類の多くは引火点200℃以上250℃未満で第4石油類に該当しますが、一部（ヤシ油、パーム油など）は引火点250℃以上であり、指定数量の対象外となります。" },
+            { text: "ジエチルエーテルは、麻酔性があり、蒸気は有毒である。", answer: true, explanation: "ジエチルエーテルは強い麻酔性を持ち、高濃度の蒸気を吸入すると意識を失う危険があります。" },
+            { text: "第4類の危険物を貯蔵する容器には、「火気厳禁」と表示しなければならない。", answer: true, explanation: "第4類は引火性の液体であるため、その危険性を示す「火気厳禁」の注意事項表示が義務付けられています。" },
+            { text: "トルエンやキシレンは、水に溶けやすい。", answer: false, explanation: "トルエンやキシレンは代表的な非水溶性の液体（第一石油類）であり、水にはほとんど溶けません。" },
+            { text: "重油は、引火点によってA重油、B重油、C重油に分類される。", answer: false, explanation: "重油は「動粘度（流れにくさ）」によって1種（A重油）、2種（B重油）、3種（C重油）に分類されます。引火点はどれも60℃以上です。" },
+            { text: "第4類の危険物は、液温が引火点以上になると、蒸気が燃焼範囲の下限値を超える。", answer: true, explanation: "引火点は、燃焼範囲の下限値に達する蒸気を発生する最低温度です。したがって、液温が引火点以上になれば、空気と混合して燃焼できる状態になります。" },
+            { text: "二酸化炭素消火器は、屋外の風が強い場所での油火災に最も適している。", answer: false, explanation: "二酸化炭素は気体のため、風が強い屋外では消火ガスが飛散してしまい、窒息効果が得られにくく不適です。泡や粉末消火器が適しています。" },
+            { text: "メタノール（メチルアルコール）は、飲むと失明や死亡の危険がある有毒な液体である。", answer: true, explanation: "メタノールは人体に有毒であり、飲用すると失明や、重篤な場合は死に至るため、エタノール（飲用アルコール）と厳重に区別する必要があります。" },
+            { text: "第4類の危険物は、すべて電気の不良導体である。", answer: false, explanation: "ガソリンや灯油などは電気を通しにくい不良導体で静電気が溜まりやすいですが、メタノールやアセトンなどの水溶性液体は、比較的電気を通しやすい性質を持ちます。" },
+            { text: "ガソリンの燃焼範囲は、灯油や軽油よりも狭い。", answer: false, explanation: "ガソリンの燃焼範囲は約1.4～7.6%であり、灯油（約1.1～6.0%）や軽油（約1.0～5.0%）よりも広く、危険性が高い一因となっています。" },
+            { text: "第ニ石油類の軽油は、非水溶性液体である。", answer: true, explanation: "軽油は水に溶けず、水より軽いため水に浮きます。第一石油類のガソリンや灯油と同様、非水溶性です。" },
+            { text: "第4類の危険物は、蒸気を吸入しても人体に害はない。", answer: false, explanation: "第4類の蒸気の多くは麻酔性があり、高濃度で吸入すると頭痛、めまい、吐き気を引き起こし、重い場合は意識不明になるなど有毒です。" },
+            { text: "ハロゲン化物消火器は、消火後に汚損が少ないという利点がある。", answer: true, explanation: "ガス系の消火剤（ハロゲン化物、二酸化炭素）は、消火後に薬剤が蒸発・飛散するため、粉末消火器のように周囲を汚損することが少ないです。" },
+            { text: "第三石油類の重油は、水溶性液体である。", answer: false, explanation: "重油は水に溶けず、水より軽いため水に浮きます。非水溶性液体に分類されます。" },
+            { text: "第4類の危険物は、温度が上がると体積が膨張する。", answer: true, explanation: "液体は一般に温度が上がると体積が膨張します。そのため、容器に充填する際は、温度上昇による膨張を考慮して一定の空間（空間容積）を設ける必要があります。" }
+        ];
+
+        let currentQuestionIndex = 0;
+        let questionOrder = [...Array(questions.length).keys()]; // 問題のインデックス配列
+        let originalQuestionOrder = [...questionOrder]; // シャッフル前の順番を保持
+        let quizMode = 'retry'; // 'retry' または 'continue'
+        let correctCount = 0;
+        let totalAnswered = 0;
+
+        const questionTextEl = document.getElementById('question-text');
+        const trueBtn = document.getElementById('true-btn');
+        const falseBtn = document.getElementById('false-btn');
+        const feedbackOverlay = document.getElementById('feedback-overlay');
+        const explanationContainer = document.getElementById('explanation-container');
+        const buttonContainer = document.getElementById('button-container');
+        const completeContainer = document.getElementById('complete-container');
+        const restartBtn = document.getElementById('restart-btn');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const actionButtonContainer = document.getElementById('action-button-container');
+        const nextQuestionBtn = document.getElementById('next-question-btn');
+        const returnToStartBtn = document.getElementById('return-to-start-btn');
+        const quitBtn = document.getElementById('quit-btn');
+        const rateTextEl = document.getElementById('rate-text');
+        const finalRateEl = document.getElementById('final-rate');
+
+        // モード選択用
+        const modeSelectionEl = document.getElementById('mode-selection');
+        const quizMainContentEl = document.getElementById('quiz-main-content');
+        const modeRetryBtn = document.getElementById('mode-retry');
+        const modeContinueBtn = document.getElementById('mode-continue');
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+        
+        function displayQuestion() {
+            explanationContainer.classList.add('hidden');
+            actionButtonContainer.classList.add('hidden');
+            buttonContainer.style.display = 'grid';
+            toggleButtons(false);
+
+            if (currentQuestionIndex < questionOrder.length) {
+                const qIndex = questionOrder[currentQuestionIndex];
+                questionTextEl.textContent = `【問${currentQuestionIndex + 1}】 ${questions[qIndex].text}`;
+                updateProgress();
+            } else {
+                showCompletionScreen();
+            }
+        }
+
+        function updateProgress() {
+            const progressPercentage = ((currentQuestionIndex) / questionOrder.length) * 100;
+            progressBar.style.width = `${progressPercentage}%`;
+            progressText.textContent = `${currentQuestionIndex + 1} / ${questionOrder.length}`;
+
+            // 正解率の表示
+            if (quizMode === 'continue' && totalAnswered > 0) {
+                const rate = Math.round((correctCount / totalAnswered) * 100);
+                rateTextEl.textContent = ` | 正解率: ${rate}%`; // セパレーターを追加
+                rateTextEl.classList.remove('hidden');
+            } else {
+                rateTextEl.classList.add('hidden');
+            }
+        }
+
+        function checkAnswer(userAnswer) {
+            totalAnswered++; // 回答数を増やす
+            const qIndex = questionOrder[currentQuestionIndex];
+            const question = questions[qIndex];
+            const isCorrect = userAnswer === question.answer;
+
+            if (isCorrect) {
+                correctCount++; // 正解数を増やす
+            }
+
+            buttonContainer.style.display = 'none';
+            showFeedback(isCorrect);
+            
+            explanationContainer.innerHTML = `<h3 class="font-bold mb-2 text-lg">${isCorrect ? '正解！ - 解説' : '不正解 - 解説'}</h3><p>${question.explanation}</p>`;
+            explanationContainer.classList.remove('hidden');
+
+            if (isCorrect) {
+                explanationContainer.className = "mb-6 text-left p-4 bg-green-50 border border-green-200 rounded-lg";
+                nextQuestionBtn.style.display = 'none';
+                returnToStartBtn.style.display = 'none';
+                actionButtonContainer.classList.add('hidden'); // ボタンコンテナを非表示に
+
+                // 5秒後に次の問題へ
+                setTimeout(handleNextQuestion, 5000); // 5000ミリ秒 = 5秒
+            } else {
+                explanationContainer.className = "mb-6 text-left p-4 bg-red-50 border border-red-200 rounded-lg";
+                
+                if (quizMode === 'retry') {
+                    nextQuestionBtn.style.display = 'none';
+                    returnToStartBtn.style.display = 'block'; // 「最初からやり直す」 (間違えた問題が問1になる)
+                } else { // 'continue' mode
+                    nextQuestionBtn.style.display = 'block'; // 「次の問題へ」
+                    returnToStartBtn.style.display = 'none';
+                }
+                
+                actionButtonContainer.classList.remove('hidden'); // ボタンコンテナを表示
+            }
+        }
+
+        function showFeedback(isCorrect) {
+            feedbackOverlay.style.display = 'flex';
+            if (isCorrect) {
+                feedbackOverlay.innerHTML = '<span class="text-blue-500">〇</span>';
+                feedbackOverlay.className = "absolute inset-0 flex items-center justify-center text-9xl font-extrabold feedback-animation";
+            } else {
+                feedbackOverlay.innerHTML = '<span class="text-red-500">×</span>';
+                feedbackOverlay.className = "absolute inset-0 flex items-center justify-center text-9xl font-extrabold feedback-animation";
+            }
+            // アニメーションが終わる頃にフィードバックを消す
+            setTimeout(hideFeedback, 1500);
+        }
+
+        function hideFeedback() {
+            feedbackOverlay.style.display = 'none';
+        }
+        
+        function toggleButtons(disabled) {
+            trueBtn.disabled = disabled;
+            falseBtn.disabled = disabled;
+            trueBtn.classList.toggle('opacity-50', disabled);
+            trueBtn.classList.toggle('cursor-not-allowed', disabled);
+            falseBtn.classList.toggle('opacity-50', disabled);
+            falseBtn.classList.toggle('cursor-not-allowed', disabled);
+        }
+
+        function showCompletionScreen() {
+            // クイズ本体の主要素を隠す
+            document.querySelector('header').style.display = 'none';
+            // document.querySelector('.mb-6:not(#explanation-container)').style.display = 'none'; // Progress bar container
+            document.querySelector('.bg-slate-50').style.display = 'none'; // Question container
+            buttonContainer.style.display = 'none';
+            explanationContainer.classList.add('hidden');
+            actionButtonContainer.classList.add('hidden');
+            
+            // 全体コンテナを表示
+            completeContainer.classList.remove('hidden');
+
+            // 最終正解率の表示
+            if (quizMode === 'continue') {
+                const rate = Math.round((correctCount / questionOrder.length) * 100);
+                finalRateEl.textContent = `最終正解率: ${rate}% (${correctCount} / ${questionOrder.length})`;
+                finalRateEl.classList.remove('hidden');
+            } else {
+                finalRateEl.classList.add('hidden');
+            }
+            
+            // 進捗バーは表示したままにする
+            const finalProgressContainer = document.querySelector('.mb-6:not(#explanation-container)');
+            if(finalProgressContainer) finalProgressContainer.style.display = 'block';
+            progressBar.style.width = '100%';
+            progressText.textContent = `${questionOrder.length} / ${questionOrder.length}`;
+        }
+
+        function handleNextQuestion() {
+            currentQuestionIndex++;
+            displayQuestion();
+        }
+
+        function handleReturnToStart() {
+            // Get the *index* of the question that was just answered incorrectly
+            const incorrectQuestionIndex = questionOrder[currentQuestionIndex];
+            
+            // Remove it from its current position in the *order* array
+            questionOrder.splice(currentQuestionIndex, 1);
+            
+            // Add its *index* to the beginning of the *order* array
+            questionOrder.unshift(incorrectQuestionIndex);
+
+            // Reset the index to 0 (which now points to the incorrect question's index)
+            currentQuestionIndex = 0;
+            
+            // Display the question
+            displayQuestion();
+        }
+        
+        function startQuiz() {
+            modeSelectionEl.classList.add('hidden');
+            quizMainContentEl.classList.remove('hidden'); // クイズ本体を表示
+
+            currentQuestionIndex = 0;
+            correctCount = 0; // Reset
+            totalAnswered = 0; // Reset
+            // 新しいシャッフルされた問題順を作成
+            questionOrder = [...Array(questions.length).keys()];
+            shuffleArray(questionOrder);
+            originalQuestionOrder = [...questionOrder]; // シャッフル順を保存
+
+            // 表示要素をリセット
+            document.querySelector('header').style.display = 'block';
+            document.querySelector('.mb-6:not(#explanation-container)').style.display = 'block';
+            document.querySelector('.bg-slate-50').style.display = 'flex';
+            completeContainer.classList.add('hidden');
+            finalRateEl.classList.add('hidden'); // 最終正解率を隠す
+            
+            displayQuestion();
+        }
+
+        trueBtn.addEventListener('click', () => checkAnswer(true));
+        falseBtn.addEventListener('click', () => checkAnswer(false));
+        
+        function returnToModeSelection() {
+            completeContainer.classList.add('hidden');
+            quizMainContentEl.classList.add('hidden'); // クイズ本体を隠す
+            modeSelectionEl.classList.remove('hidden'); // モード選択を表示
+            // プログレスバーと正解率をリセット
+            progressBar.style.width = '0%';
+            progressText.textContent = '';
+            rateTextEl.classList.add('hidden');
+            finalRateEl.classList.add('hidden');
+        }
+
+        // 全問正解後の「もう一度挑戦する」ボタン
+        restartBtn.addEventListener('click', returnToModeSelection);
+
+        nextQuestionBtn.addEventListener('click', handleNextQuestion);
+        returnToStartBtn.addEventListener('click', handleReturnToStart);
+        
+        // 途中でやめるボタン
+        quitBtn.addEventListener('click', returnToModeSelection);
+
+        // モード選択ボタンのイベントリスナー
+        modeRetryBtn.addEventListener('click', () => {
+            quizMode = 'retry';
+            startQuiz();
+        });
+
+        modeContinueBtn.addEventListener('click', () => {
+            quizMode = 'continue';
+            startQuiz();
+        });
+
+        // 初期化時はモード選択画面を表示するため、最後の呼び出しは削除
+    </script>
+</body>
+</html>
